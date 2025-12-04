@@ -1,8 +1,14 @@
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import current_user, LoginManager
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 
 from app import config
+
+# --- SQLAlchemy & Flask-Migrate ---
+db = SQLAlchemy()
+migrate = Migrate()
 
 login_manager = LoginManager()
 login_manager.session_protection = "strong"
