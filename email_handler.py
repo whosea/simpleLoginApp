@@ -31,6 +31,7 @@ It should contain the following info:
 
 """
 
+import os
 import argparse
 import email
 import uuid
@@ -2439,9 +2440,9 @@ class MailHandler:
                 return return_status
 
 
-def main(port: int):
+def main(host: str, port: int):
     """Use aiosmtpd Controller"""
-    controller = Controller(MailHandler(), hostname="0.0.0.0", port=port)
+    controller = Controller(MailHandler(), hostname=host, port=port)
 
     controller.start()
     LOG.d("Start mail controller %s %s", controller.hostname, controller.port)
@@ -2460,7 +2461,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p", "--port", help="SMTP port to listen for", type=int, default=20381
     )
+    parser.add_argument(
+        "--host",
+        help="SMTP host to listen on",
+        default=os.getenv("SL_SMTP_HOST", "127.0.0.1"),
+    )
     args = parser.parse_args()
 
-    LOG.i("Listen for port %s", args.port)
-    main(port=args.port)
+    LOG.i("Listen for %s:%s", args.host, args.port)
+    main(host=args.host, port=args.port)
