@@ -1,3 +1,5 @@
+import os
+import logging
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -10,8 +12,12 @@ from alembic import context
 config = context.config
 
 # Interpret the config file for Python logging.
-# This line sets up loggers basically.
-fileConfig(config.config_file_name)
+# 只有在 config_file_name 存在并且文件存在时才加载；
+# 否则用一个简单的默认日志配置，避免 FileNotFoundError。
+if config.config_file_name and os.path.exists(config.config_file_name):
+    fileConfig(config.config_file_name)
+else:
+    logging.basicConfig(level=logging.INFO)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -32,7 +38,7 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-config.set_main_option('sqlalchemy.url', DB_URI)
+config.set_main_option("sqlalchemy.url", DB_URI)
 
 
 def run_migrations_offline():
@@ -73,9 +79,7 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
