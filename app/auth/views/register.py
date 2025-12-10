@@ -20,6 +20,7 @@ from app.log import LOG
 from app.models import User, ActivationCode, DailyMetric
 from app.utils import random_string, encode_url, sanitize_email, canonicalize_email
 
+from app.imap_utils import provision_imap_account_for_user
 
 class RegisterForm(FlaskForm):
     email = StringField("Email", validators=[validators.DataRequired()])
@@ -93,6 +94,13 @@ def register():
                     referral=get_referral(),
                 )
                 Session.commit()
+
+                # 2. 开通 IMAP 存档账号（异常可以忽略，不影响主注册流程）
+                try:
+                    if config.IMAP_ARCHIVE_ENABLED:
+                        provision_imap_account_for_user(user)
+                except Exception:
+                    LOG.e("Provision IMAP account failed for user %s", user.id, exc_info=True)
 
                 try:
                     send_activation_email(user, next_url)

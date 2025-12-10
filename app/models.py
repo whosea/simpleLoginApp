@@ -3519,6 +3519,61 @@ class DailyMetric(Base, ModelMixin):
             )
         return daily_metric
 
+class MailUser(Base, ModelMixin):
+    """
+    IMAP / Dovecot 虚拟用户表
+    每个 SimpleLogin User 对应 0 或 1 个 MailUser 记录
+    """
+    __tablename__ = "mail_user"
+
+    # 关联 SimpleLogin 的 users.id
+    sl_user_id = sa.Column(
+        sa.Integer,
+        sa.ForeignKey("users.id", ondelete="cascade"),
+        nullable=False,
+        unique=True,            # 一般一个 SL 用户只对应一个 IMAP 账号
+        index=True,
+    )
+
+    # Dovecot 登录用户名，例如: user_123@imap.inbox.zhegehuo.com
+    username = sa.Column(sa.String(256), nullable=False, unique=True)
+
+    # 给 Dovecot 用的密码 hash（doveadm pw 生成的结果）
+    pass_hash = sa.Column(sa.String(256), nullable=False)
+
+    # 可选：加密后保存的明文，用于 SnappyMail SSO
+    # 后面你可以自己用 Fernet / libsodium 加密后再丢进来
+    pass_plain = sa.Column(sa.LargeBinary(), nullable=True)
+
+    # Maildir 目录，例如: /var/mail/simplelogin/3f9a.../Maildir
+    home = sa.Column(sa.String(512), nullable=False)
+
+    # 是否激活
+    active = sa.Column(
+        sa.Boolean,
+        nullable=False,
+        default=True,
+        server_default="1",
+    )
+
+    # ORM 关系：User <-> MailUser 一对一
+    user = orm.relationship(
+        "User",
+        backref=orm.backref(
+            "mail_user",
+            uselist=False,                 # 一对一
+            cascade="all, delete-orphan",  # 删除 User 时顺带删 MailUser
+        ),
+        primaryjoin="User.id == MailUser.sl_user_id",
+    )
+
+    __table_args__ = (
+        sa.Index("ix_mail_user_username", "username"),
+    )
+
+    def __repr__(self):
+        return f"<MailUser {self.id} {self.username} sl_user_id={self.sl_user_id}>"
+
 
 class Bounce(Base, ModelMixin):
     """Record all bounces. Deleted after 7 days"""
