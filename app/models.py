@@ -3571,6 +3571,11 @@ class MailUser(Base, ModelMixin):
         sa.Index("ix_mail_user_username", "username"),
     )
 
+    @classmethod
+    def get_by_user_id(cls, user_id: int):
+        """兼容你在 imap_utils 里调用的 get_by_user_id()"""
+        return cls.get_by(sl_user_id=user_id)
+
     def __repr__(self):
         return f"<MailUser {self.id} {self.username} sl_user_id={self.sl_user_id}>"
 
