@@ -6,7 +6,7 @@
       Aliases
     </a>
   </li>
-  {% if current_user.subdomain_is_available() %}
+{#  {% if current_user.subdomain_is_available() %}#}
 
     <li class="nav-item">
       <a href="{{ url_for("dashboard.subdomain_route") }}"
@@ -14,7 +14,7 @@
         <i class="fe fe-server"></i> Subdomains
       </a>
     </li>
-  {% endif %}
+{#  {% endif %}#}
   <li class="nav-item">
     <a href="{{ url_for("dashboard.mailbox_route") }}"
        class="nav-link {{ 'active' if active_page == 'mailbox' }}">
