@@ -34,6 +34,8 @@ from .views import (
     support,
     account_setting,
     alias_trash,
+    # 👇 新增：让 webmail_sso_login 路由被注册
+    webmail,
 )
 
 __all__ = [
@@ -72,4 +74,5 @@ __all__ = [
     "support",
     "account_setting",
     "alias_trash",
+    "webmail",
 ]

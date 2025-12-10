@@ -21,6 +21,15 @@
       <i class="fe fe-inbox"></i> Mailboxes
     </a>
   </li>
+  {# ⭐ 新增 Webmail tab #}
+  {% if config.IMAP_ARCHIVE_ENABLED %}
+  <li class="nav-item">
+    <a href="{{ url_for('dashboard.webmail_sso_login') }}"
+       class="nav-link {{ 'active' if active_page == 'webmail' }}">
+      <i class="fe fe-mail"></i> Webmail
+    </a>
+  </li>
+  {% endif %}
   <li class="nav-item">
     <a href="{{ url_for("dashboard.custom_domain") }}"
        class="nav-link {{ 'active' if active_page == 'custom_domain' }}">

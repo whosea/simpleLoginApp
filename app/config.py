@@ -103,9 +103,22 @@ SENTRY_FRONT_END_DSN = os.environ.get("SENTRY_FRONT_END_DSN") or SENTRY_DSN
 NOT_SEND_EMAIL = "NOT_SEND_EMAIL" in os.environ
 EMAIL_DOMAIN = os.environ["EMAIL_DOMAIN"].lower()
 
-# 👇 新增：IMAP 存档配置（可选）
-IMAP_ARCHIVE_ENABLED = "IMAP_ARCHIVE_ENABLED" in os.environ
-IMAP_ARCHIVE_DOMAIN = os.environ.get("IMAP_ARCHIVE_DOMAIN", f"imap.{EMAIL_DOMAIN}")
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    """把环境变量里的 'true' / 'false' / '1' / '0' 等解析成 bool。"""
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+# IMAP 归档 & Webmail SSO
+# IMAP 归档开关（默认 True）
+IMAP_ARCHIVE_ENABLED = _env_bool("IMAP_ARCHIVE_ENABLED", True)
+IMAP_ARCHIVE_DOMAIN = os.environ.get("IMAP_ARCHIVE_DOMAIN") or f"imap.{EMAIL_DOMAIN}"
+
+WEBMAIL_URL = os.environ.get("WEBMAIL_URL", "").rstrip("/")
+WEBMAIL_SSO_SECRET = os.environ.get("WEBMAIL_SSO_SECRET", "")  # 和脚本里的 partner_secret 一致
+
 
 SUPPORT_EMAIL = os.environ["SUPPORT_EMAIL"]
 SUPPORT_NAME = os.environ.get("SUPPORT_NAME", "Son from SimpleLogin")
