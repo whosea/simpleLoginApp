@@ -183,6 +183,13 @@ from app.utils import sanitize_email
 from init_app import load_pgp_public_keys
 from server import create_light_app
 
+# 👇 新增：生成每个用户的 IMAP 存档地址
+def get_imap_archive_rcpt_for_user(user: User) -> str:
+    """
+    生成类似 user_123@imap.inbox.zhegehuo.com 的地址，
+    由 Dovecot + Postfix 负责最终投递到 Maildir。
+    """
+    return f"user_{user.id}@{config.IMAP_ARCHIVE_DOMAIN}"
 
 @sentry_sdk.trace
 def get_or_create_contact(
@@ -914,6 +921,11 @@ def forward_email_to_mailbox(
     # when an alias isn't in the To: header, there's no way for users to know what alias has received the email
     msg[headers.SL_ENVELOPE_TO] = alias.email
 
+    # 👇 新增：给后面 Dovecot sieve 用的 alias 标记
+    #给外面用户转发的邮件也带上X-SL-Alias，他们如果在Gmail / Outlook里玩过滤规则也能用。
+    #对你自己的Dovecot存档来说，这个header是sieve的核心条件。
+    add_or_replace_header(msg, "X-SL-Alias", alias.email)
+
     if not msg[headers.DATE]:
         LOG.w("missing date header, create one")
         msg[headers.DATE] = formatdate()
@@ -967,6 +979,7 @@ def forward_email_to_mailbox(
 
     contact_domain = get_email_domain_part(contact.reply_email)
     try:
+        # 1️⃣ 原来的转发：alias -> 用户配置的 mailbox（Gmail / QQ / Proton 等）
         sl_sendmail(
             # use a different envelope sender for each forward (aka VERP)
             generate_verp_email(VerpType.bounce_forward, email_log.id, contact_domain),
@@ -976,6 +989,34 @@ def forward_email_to_mailbox(
             envelope.rcpt_options,
             is_forward=True,
         )
+
+        # 2️⃣ 新增：选配的 IMAP 存档一份到 user_xxx@imap.${MAIL_DOMAIN}
+        if getattr(config, "IMAP_ARCHIVE_ENABLED", False):
+            archive_rcpt = get_imap_archive_rcpt_for_user(user)
+
+            # 注意：拷贝一份，避免后面有别的地方再改 msg
+            archive_msg = copy(msg)
+
+            # 再保证一下 header 在（正常情况下上面已经加过了）
+            add_or_replace_header(archive_msg, "X-SL-Alias", alias.email)
+
+            LOG.d(
+                "Archive mail for user %s to IMAP mailbox %s",
+                user.id,
+                archive_rcpt,
+            )
+
+            sl_sendmail(
+                generate_verp_email(
+                    VerpType.bounce_forward, email_log.id, contact_domain
+                ),
+                archive_rcpt,
+                archive_msg,
+                envelope.mail_options,
+                envelope.rcpt_options,
+                is_forward=True,
+            )
+
     except (SMTPServerDisconnected, SMTPRecipientsRefused, TimeoutError):
         LOG.w(
             "Postfix error during forward phase %s -> %s -> %s",

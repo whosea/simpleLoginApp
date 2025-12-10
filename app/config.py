@@ -102,6 +102,11 @@ SENTRY_FRONT_END_DSN = os.environ.get("SENTRY_FRONT_END_DSN") or SENTRY_DSN
 # Email related settings
 NOT_SEND_EMAIL = "NOT_SEND_EMAIL" in os.environ
 EMAIL_DOMAIN = os.environ["EMAIL_DOMAIN"].lower()
+
+# 👇 新增：IMAP 存档配置（可选）
+IMAP_ARCHIVE_ENABLED = "IMAP_ARCHIVE_ENABLED" in os.environ
+IMAP_ARCHIVE_DOMAIN = os.environ.get("IMAP_ARCHIVE_DOMAIN", f"imap.{EMAIL_DOMAIN}")
+
 SUPPORT_EMAIL = os.environ["SUPPORT_EMAIL"]
 SUPPORT_NAME = os.environ.get("SUPPORT_NAME", "Son from SimpleLogin")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
