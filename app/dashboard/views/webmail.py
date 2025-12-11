@@ -7,6 +7,7 @@ from flask_login import login_required, current_user
 from app import config
 from app.dashboard.base import dashboard_bp
 from app.imap_utils import provision_imap_account_for_user
+from app.log import LOG
 
 from app.models import MailUser
 
@@ -53,8 +54,11 @@ def webmail_sso_login():
             },
             timeout=5,
         )
-    except requests.RequestException:
+    except requests.RequestException as e:
+        LOG.e("SnappyMail ExternalSso 请求异常: %s", repr(e))
         abort(502)
+
+    LOG.e("SnappyMail ExternalSso 返回: status=%s, body=%r", resp.status_code, resp.text[:500],)
 
     if resp.status_code != 200:
         abort(502)
