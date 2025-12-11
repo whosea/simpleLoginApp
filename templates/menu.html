@@ -6,10 +6,10 @@
       Aliases
     </a>
   </li>
-{#  {% if current_user.subdomain_is_available() %}#}
+{# {% if current_user.webmail_is_available() %}#}
 
     <li class="nav-item">
-      <a href="{{ url_for('dashboard_webmail.webmail_sso_login') }}"
+      <a href="{{ url_for('dashboard.webmail_sso_login') }}"
          class="nav-link {{ 'active' if active_page == 'webmail' }}">
         <i class="fe fe-server"></i> Webmail
       </a>
