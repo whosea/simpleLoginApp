@@ -77,8 +77,10 @@ def provision_imap_account_for_user(user: User) -> MailUser:
     # VMAIL_DIR 比如：/var/mail/simplelogin
     home = os.path.join(VMAIL_DIR, str(user.id), "Maildir")
 
+
     create_maildir(home)
 
+    LOG.i("provision_imap_account_for_user MailUser create")
     mail_user = MailUser.create(
         sl_user_id=user.id,
         username=username,
@@ -86,8 +88,6 @@ def provision_imap_account_for_user(user: User) -> MailUser:
         pass_plain=plain,  # TODO: 之后可以换成加密存储
         home=home,
         active=True,
-        created_at=arrow.utcnow(),
-        updated_at=arrow.utcnow(),
     )
     Session.commit()
     LOG.i("Provision IMAP account %s for user %s (home=%s)", username, user.id, home)
