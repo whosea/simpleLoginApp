@@ -100,6 +100,7 @@ def register():
                     if config.IMAP_ARCHIVE_ENABLED:
                         provision_imap_account_for_user(user)
                 except Exception:
+                    Session.rollback()  # ✅ 把事务回滚掉
                     LOG.e("Provision IMAP account failed for user %s", user.id, exc_info=True)
 
                 try:

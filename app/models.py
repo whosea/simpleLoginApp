@@ -3539,11 +3539,11 @@ class MailUser(Base, ModelMixin):
     username = sa.Column(sa.String(256), nullable=False, unique=True)
 
     # 给 Dovecot 用的密码 hash（doveadm pw 生成的结果）
-    pass_hash = sa.Column(sa.String(256), nullable=False)
+    pass_hash = sa.Column(sa.Text, nullable=False)
 
     # 可选：加密后保存的明文，用于 SnappyMail SSO
     # 后面你可以自己用 Fernet / libsodium 加密后再丢进来
-    pass_plain = sa.Column(sa.LargeBinary(), nullable=True)
+    pass_plain = sa.Column(sa.Text, nullable=True)
 
     # Maildir 目录，例如: /var/mail/simplelogin/3f9a.../Maildir
     home = sa.Column(sa.String(512), nullable=False)
