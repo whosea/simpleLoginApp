@@ -48,21 +48,11 @@ def create_maildir(home_dir: str):
     """
     home_dir 形如 /var/mail/simplelogin/<uuid>/Maildir
     """
-    # 按 Maildir 结构创建 cur/new/tmp
-    for sub in ("cur", "new", "tmp"):
-        path = os.path.join(home_dir, sub)
+    # 创建 Maildir 目录结构：home/, home/cur, home/new, home/tmp
+    for sub in ("", "cur", "new", "tmp"):
+        path = os.path.join(home_dir, sub) if sub else home_dir
         os.makedirs(path, exist_ok=True)
 
-    # 改属主为 vmail:vmail（需要进程有权限）
-    try:
-        os.chown(os.path.dirname(home_dir), VMAIL_UID, VMAIL_GID)
-        for root, dirs, files in os.walk(os.path.dirname(home_dir)):
-            for d in dirs:
-                os.chown(os.path.join(root, d), VMAIL_UID, VMAIL_GID)
-            for f in files:
-                os.chown(os.path.join(root, f), VMAIL_UID, VMAIL_GID)
-    except PermissionError:
-        LOG.w("create_maildir: chown 失败，检查服务进程是否有权限。")
 
 
 def provision_imap_account_for_user(user: User) -> MailUser:
@@ -79,9 +69,12 @@ def provision_imap_account_for_user(user: User) -> MailUser:
     plain = generate_plain_password()
     pass_hash = generate_dovecot_hash(plain)
 
-    # 生成一个随机目录名，避免暴露 user_id
-    rand_dir = uuid.uuid4().hex
-    home = os.path.join(VMAIL_DIR, rand_dir, "Maildir")
+    # # 生成一个随机目录名，避免暴露 user_id
+    # rand_dir = uuid.uuid4().hex
+    # home = os.path.join(VMAIL_DIR, rand_dir, "Maildir")
+    # 👉 改成固定用 user.id，当成目录名
+    # VMAIL_DIR 比如：/var/mail/simplelogin
+    home = os.path.join(VMAIL_DIR, str(user.id), "Maildir")
 
     create_maildir(home)
 

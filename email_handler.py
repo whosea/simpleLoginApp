@@ -183,7 +183,7 @@ from app.utils import sanitize_email
 from init_app import load_pgp_public_keys
 from server import create_light_app
 
-# 👇 新增：生成每个用户的 IMAP 存档地址
+# 👇 新增：生成每个用户的 IMAP 存档地址，投递地址，只要 Dovecot 的 userdb/passdb 里 username 字段也是这个值
 def get_imap_archive_rcpt_for_user(user: User) -> str:
     """
     生成类似 user_123@imap.inbox.zhegehuo.com 的地址，
