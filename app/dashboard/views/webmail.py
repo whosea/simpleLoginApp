@@ -59,10 +59,9 @@ def webmail_sso_login():
         abort(502)
 
     LOG.e(
-        "SnappyMail ExternalSso 调用 URL: %s Email=%s Password=%s SsoKey=%s...",
+        "SnappyMail ExternalSso 调用 URL: %s Email=%s SsoKey=%s...",
         external_sso_url,
         imap_username,
-        imap_password,
         sso_key[:12] + "..."
     )
     LOG.e("SnappyMail ExternalSso 调用 URL: %s", external_sso_url)
