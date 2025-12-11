@@ -3,6 +3,7 @@ import os
 import secrets
 import uuid
 import subprocess
+import arrow
 
 from app import config
 from app.log import LOG
@@ -85,6 +86,8 @@ def provision_imap_account_for_user(user: User) -> MailUser:
         pass_plain=plain,  # TODO: 之后可以换成加密存储
         home=home,
         active=True,
+        created_at=arrow.utcnow(),
+        updated_at=arrow.utcnow(),
     )
     Session.commit()
     LOG.i("Provision IMAP account %s for user %s (home=%s)", username, user.id, home)
