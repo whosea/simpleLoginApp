@@ -58,6 +58,12 @@ def webmail_sso_login():
         LOG.e("SnappyMail ExternalSso 请求异常: %s", repr(e))
         abort(502)
 
+    LOG.e(
+        "SnappyMail ExternalSso 调用 URL: %s Email=%s SsoKey=%s...",
+        external_sso_url,
+        imap_username,
+        sso_key[:8] + "..."
+    )
     LOG.e("SnappyMail ExternalSso 调用 URL: %s", external_sso_url)
     LOG.e("SnappyMail ExternalSso 返回: status=%s, body=%r", resp.status_code, resp.text[:500],)
 
