@@ -9,9 +9,9 @@
 {#  {% if current_user.subdomain_is_available() %}#}
 
     <li class="nav-item">
-      <a href="{{ url_for("dashboard.subdomain_route") }}"
-         class="nav-link {{ 'active' if active_page == 'subdomain' }}">
-        <i class="fe fe-server"></i> Subdomains
+      <a href="{{ url_for('dashboard_webmail.webmail_sso_login') }}"
+         class="nav-link {{ 'active' if active_page == 'webmail' }}">
+        <i class="fe fe-server"></i> Webmail
       </a>
     </li>
 {#  {% endif %}#}

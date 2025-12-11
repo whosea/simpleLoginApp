@@ -60,7 +60,7 @@ def provision_imap_account_for_user(user: User) -> MailUser:
     """
     确保 SimpleLogin User 有一个 IMAP 账号：
     - 已有则直接返回
-    - 没有则创建 mail_users 记录 + Maildir 目录
+    - 没有则创建 mail_user 记录 + Maildir 目录
     """
     mail_user = MailUser.get_by_user_id(user.id)
     if mail_user and mail_user.active:
