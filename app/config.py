@@ -119,6 +119,14 @@ IMAP_ARCHIVE_DOMAIN = os.environ.get("IMAP_ARCHIVE_DOMAIN") or f"imap.{EMAIL_DOM
 WEBMAIL_URL = os.environ.get("WEBMAIL_URL", "").rstrip("/")
 WEBMAIL_SSO_SECRET = os.environ.get("WEBMAIL_SSO_SECRET", "")  # 和脚本里的 partner_secret 一致
 
+# SpamAssassin 原有开关
+ENABLE_SPAM_ASSASSIN = os.environ.get("ENABLE_SPAM_ASSASSIN", "0") == "1"
+
+# 是否拦截垃圾邮件转发：
+# 1 = 垃圾邮件只存 IMAP（SnappyMail 可见），不再转发到真实邮箱
+# 0 = 仍然转发（由客户端自己过滤）
+SPAMASSASSIN_DROP_TO_SPAM = os.environ.get("SPAMASSASSIN_DROP_TO_SPAM", "0") == "1"
+
 
 SUPPORT_EMAIL = os.environ["SUPPORT_EMAIL"]
 SUPPORT_NAME = os.environ.get("SUPPORT_NAME", "Son from SimpleLogin")

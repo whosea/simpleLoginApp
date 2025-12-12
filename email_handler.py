@@ -89,6 +89,7 @@ from app.config import (
     ALERT_FROM_ADDRESS_IS_REVERSE_ALIAS,
     ALERT_TO_NOREPLY,
     MAX_EMAIL_FORWARD_RECIPIENTS,
+    SPAMASSASSIN_DROP_TO_SPAM,  # ✅ 新增这一行
 )
 from app.db import Session
 from app.email import status, headers
@@ -805,6 +806,8 @@ def forward_email_to_mailbox(
         commit=True,
     )
     LOG.d("Create %s for %s, %s, %s", email_log, contact, user, mailbox)
+    # 在函数一开始就准备一个标记：是否“只存 IMAP、不转真实邮箱”
+    drop_to_imap_only = False
 
     if ENABLE_SPAM_ASSASSIN:
         # Spam check
@@ -847,7 +850,19 @@ def forward_email_to_mailbox(
             Session.commit()
 
             handle_spam(contact, alias, msg, user, mailbox, email_log)
-            return False, status.E519
+            # 1 = 垃圾邮件只存 IMAP（SnappyMail 可见），不再转发到真实邮箱
+            if SPAMASSASSIN_DROP_TO_SPAM:
+                # ✅ 进入“只存 IMAP、不转真实邮箱”模式
+                LOG.i(
+                    "SPAMASSASSIN_DROP_TO_SPAM=1, will NOT forward spam to mailbox %s, "
+                    "but will keep IMAP archive if enabled. email_log_id=%s",
+                    mailbox.email,
+                    email_log.id,
+                )
+                drop_to_imap_only = True
+            else:
+                # 🔙 保持 SimpleLogin 原始行为：直接 5xx 拒收（不存档）
+                return False, status.E519
 
     if contact.invalid_email:
         LOG.d("add noreply information %s %s", alias, mailbox)
@@ -979,16 +994,27 @@ def forward_email_to_mailbox(
 
     contact_domain = get_email_domain_part(contact.reply_email)
     try:
-        # 1️⃣ 原来的转发：alias -> 用户配置的 mailbox（Gmail / QQ / Proton 等）
-        sl_sendmail(
-            # use a different envelope sender for each forward (aka VERP)
-            generate_verp_email(VerpType.bounce_forward, email_log.id, contact_domain),
-            mailbox.email,
-            msg,
-            envelope.mail_options,
-            envelope.rcpt_options,
-            is_forward=True,
-        )
+        # 👉 如果不是“只存 IMAP”，正常给用户真实邮箱转发一份，就是说false的话就是没有开启垃圾邮件拦截，如实转发给原来邮箱
+        if not drop_to_imap_only:
+            # 1️⃣ 原来的转发：alias -> 用户配置的 mailbox（Gmail / QQ / Proton 等）
+            sl_sendmail(
+                # use a different envelope sender for each forward (aka VERP)
+                generate_verp_email(VerpType.bounce_forward, email_log.id, contact_domain),
+                mailbox.email,
+                msg,
+                envelope.mail_options,
+                envelope.rcpt_options,
+                is_forward=True,
+            )
+        else:
+            #如果ture，则开启了垃圾邮箱拦截，不会转发到真实的，但是会存一份避免用户要查看
+            LOG.i(
+                "Spam mail for user %s will not be forwarded to real mailbox %s "
+                "(SPAMASSASSIN_DROP_TO_SPAM=1). email_log_id=%s",
+                user.id,
+                mailbox.email,
+                email_log.id,
+            )
 
         # 2️⃣ 新增：选配的 IMAP 存档一份到 user_xxx@imap.${MAIL_DOMAIN}
         if getattr(config, "IMAP_ARCHIVE_ENABLED", False):
@@ -1015,6 +1041,13 @@ def forward_email_to_mailbox(
                 envelope.mail_options,
                 envelope.rcpt_options,
                 is_forward=True,
+            )
+        elif drop_to_imap_only:
+            # 理论上你不会这样配：只存 IMAP 但又没开 IMAP_ARCHIVE_ENABLED
+            LOG.w(
+                "SPAMASSASSIN_DROP_TO_SPAM=1 但 IMAP_ARCHIVE_ENABLED=False，"
+                "当前 spam 将被黑洞（既不转发也不存 IMAP）。email_log_id=%s",
+                email_log.id,
             )
 
     except (SMTPServerDisconnected, SMTPRecipientsRefused, TimeoutError):
