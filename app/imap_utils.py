@@ -45,15 +45,15 @@ def generate_dovecot_hash(plain: str) -> str:
 '''
 这段代码需要运行在有写权限的进程里（比如你的 email handler 进程/后台 worker，如果 web 进程没有权限，可以改成由 worker 异步执行）
 '''
-def create_maildir(home_dir: str):
+def create_maildir(home: str):
     """
-    home_dir 形如 /var/mail/simplelogin/<uuid>/Maildir
+    home 形如 /var/mail/simplelogin/<id>
+    实际创建的是 /var/mail/simplelogin/<id>/Maildir/{cur,new,tmp}
     """
-    # 创建 Maildir 目录结构：home/, home/cur, home/new, home/tmp
+    maildir = os.path.join(home, "Maildir")
     for sub in ("", "cur", "new", "tmp"):
-        path = os.path.join(home_dir, sub) if sub else home_dir
+        path = os.path.join(maildir, sub) if sub else maildir
         os.makedirs(path, exist_ok=True)
-
 
 
 def provision_imap_account_for_user(user: User) -> MailUser:
@@ -75,9 +75,9 @@ def provision_imap_account_for_user(user: User) -> MailUser:
     # home = os.path.join(VMAIL_DIR, rand_dir, "Maildir")
     # 👉 改成固定用 user.id，当成目录名
     # VMAIL_DIR 比如：/var/mail/simplelogin
-    home = os.path.join(VMAIL_DIR, str(user.id), "Maildir")
+    home = os.path.join(VMAIL_DIR, str(user.id))  # ✅ 只到用户根目录
 
-
+    # create_maildir 内部去拼 home/Maildir
     create_maildir(home)
 
     LOG.i("provision_imap_account_for_user MailUser create")
