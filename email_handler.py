@@ -185,12 +185,17 @@ from init_app import load_pgp_public_keys
 from server import create_light_app
 
 # 👇 新增：生成每个用户的 IMAP 存档地址，投递地址，只要 Dovecot 的 userdb/passdb 里 username 字段也是这个值
-def get_imap_archive_rcpt_for_user(user: User) -> str:
+def get_imap_archive_rcpt_for_user(user: User, folder: str | None = None) -> str:
     """
     生成类似 user_123@imap.inbox.zhegehuo.com 的地址，
     由 Dovecot + Postfix 负责最终投递到 Maildir。
     """
-    return f"user_{user.id}@{config.IMAP_ARCHIVE_DOMAIN}"
+    base = f"user_{user.id}@{config.IMAP_ARCHIVE_DOMAIN}"
+    if folder:
+        # user_123+Spam@imap.domain
+        return f"user_{user.id}+{folder}@{config.IMAP_ARCHIVE_DOMAIN}"
+    return base
+
 
 @sentry_sdk.trace
 def get_or_create_contact(
@@ -859,6 +864,7 @@ def forward_email_to_mailbox(
                     mailbox.email,
                     email_log.id,
                 )
+                # ← 依赖后面的逻辑阻止真实邮箱投递
                 drop_to_imap_only = True
             else:
                 # 🔙 保持 SimpleLogin 原始行为：直接 5xx 拒收（不存档）
@@ -1016,9 +1022,11 @@ def forward_email_to_mailbox(
                 email_log.id,
             )
 
-        # 2️⃣ 新增：选配的 IMAP 存档一份到 user_xxx@imap.${MAIL_DOMAIN}
-        if getattr(config, "IMAP_ARCHIVE_ENABLED", False):
-            archive_rcpt = get_imap_archive_rcpt_for_user(user)
+        # 2️⃣ 新增：选配的 IMAP 存档一份到 user_xxx@imap.${MAIL_DOMAIN}，如果是垃圾邮箱，那这里就不执行，前面会放到垃圾邮箱
+        archive_enabled = getattr(config, "IMAP_ARCHIVE_ENABLED", False)
+        if archive_enabled:
+            folder = "Spam" if drop_to_imap_only else None
+            archive_rcpt = get_imap_archive_rcpt_for_user(user, folder=folder)
 
             # 注意：拷贝一份，避免后面有别的地方再改 msg
             archive_msg = copy(msg)
@@ -1031,6 +1039,10 @@ def forward_email_to_mailbox(
                 user.id,
                 archive_rcpt,
             )
+            if drop_to_imap_only:
+                add_or_replace_header(archive_msg, "X-Spam-Flag", "YES")
+                add_or_replace_header(archive_msg, "X-SL-Spam", "1")
+
 
             sl_sendmail(
                 generate_verp_email(
@@ -1042,6 +1054,7 @@ def forward_email_to_mailbox(
                 envelope.rcpt_options,
                 is_forward=True,
             )
+
         elif drop_to_imap_only:
             # 理论上你不会这样配：只存 IMAP 但又没开 IMAP_ARCHIVE_ENABLED
             LOG.w(
