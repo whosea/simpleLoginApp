@@ -48,6 +48,8 @@ from typing import List, Tuple, Optional
 import newrelic.agent
 import sentry_sdk
 import time
+import re
+
 from aiosmtpd.controller import Controller
 from aiosmtpd.smtp import Envelope
 from email_validator import validate_email, EmailNotValidError
@@ -185,16 +187,38 @@ from init_app import load_pgp_public_keys
 from server import create_light_app
 
 # 👇 新增：生成每个用户的 IMAP 存档地址，投递地址，只要 Dovecot 的 userdb/passdb 里 username 字段也是这个值
-def get_imap_archive_rcpt_for_user(user: User, folder: str | None = None) -> str:
+'''
+IMAP 投递地址：
+user_<uid>+A-<category>@imap.domain
+user_<uid>+A-<category>-Spam@imap.domain
+Maildir 路径：
+Maildir/.A-newsletter/
+Maildir/.A-newsletter/.Spam/
+
+'''
+def get_imap_archive_rcpt_for_user(
+    user: User,
+    alias: Alias,
+    folder: str | None = None,
+) -> str:
     """
-    生成类似 user_123@imap.inbox.zhegehuo.com 的地址，
-    由 Dovecot + Postfix 负责最终投递到 Maildir。
+    newsletter.xxx@domain  →  user_123+A-newsletter@imap.domain
+    spam                  →  user_123+A-newsletter-Spam@imap.domain
     """
-    base = f"user_{user.id}@{config.IMAP_ARCHIVE_DOMAIN}"
+
+    local = alias.email.split("@", 1)[0].lower()
+
+    # 只取第一个 '.' 前的分类
+    category = local.split(".", 1)[0]
+
+    # 安全兜底（避免奇怪 alias）
+    category = re.sub(r"[^a-z0-9_-]+", "_", category).strip("_") or "misc"
+
+    ext = f"A-{category}"
     if folder:
-        # user_123+Spam@imap.domain
-        return f"user_{user.id}+{folder}@{config.IMAP_ARCHIVE_DOMAIN}"
-    return base
+        ext = f"{ext}-{folder}"
+
+    return f"user_{user.id}+{ext}@{config.IMAP_ARCHIVE_DOMAIN}"
 
 
 @sentry_sdk.trace
@@ -1026,7 +1050,7 @@ def forward_email_to_mailbox(
         archive_enabled = getattr(config, "IMAP_ARCHIVE_ENABLED", False)
         if archive_enabled:
             folder = "Spam" if drop_to_imap_only else None
-            archive_rcpt = get_imap_archive_rcpt_for_user(user, folder=folder)
+            archive_rcpt = get_imap_archive_rcpt_for_user(user, alias, folder=folder)
 
             # 注意：拷贝一份，避免后面有别的地方再改 msg
             archive_msg = copy(msg)
