@@ -551,7 +551,7 @@ class User(Base, ModelMixin, UserMixin, PasswordOracle):
         sa.Boolean, default=False, nullable=False, server_default="0"
     )
 
-    # automatically include the website name when user creates an alias via the SimpleLogin icon in the email field
+    # automatically include the website name when user creates an alias via the HaloMailX icon in the email field
     include_website_in_one_click_alias = sa.Column(
         sa.Boolean,
         # new user will have this option turned on automatically
@@ -717,17 +717,50 @@ class User(Base, ModelMixin, UserMixin, PasswordOracle):
             return user
 
         # create a first alias mail to show user how to use when they login
-        alias = Alias.create_new(
-            user,
-            prefix="simplelogin-newsletter",
-            mailbox_id=mb.id,
-            note="This is your first alias. It's used to receive SimpleLogin communications "
-            "like new features announcements, newsletters.",
-        )
+        # 创建首个别名（halomailx-newsletter + 随机值），这里暂时不使用这个方式创建
+        # alias = Alias.create_new(
+        #     user,
+        #     prefix="halomailx-newsletter",
+        #     mailbox_id=mb.id,
+        #     note="This is your first alias. It's used to receive HaloMailX communications "
+        #     "like new features announcements, newsletters.",
+        # )
+        # Session.flush()
+        #
+        # user.newsletter_alias_id = alias.id
+        # Session.flush()
+
+        # =====start 默认生成 3-4 个业务通用别名
+        default_alias_categories= {
+            "newsletter": "Use this alias for newsletters, subscriptions, and product updates.",
+            "social": "Use this alias for social networks, forums, and online communities.",
+            "account": "Use this alias for important online accounts and login credentials.",
+            "shopping": "Use this alias for online shopping, payments, and order confirmations.",
+        }
+        alias_by_category = {}
+        for category, note in default_alias_categories.items():
+            alias_email = f"{category}+user_{user.id}@{config.EMAIL_DOMAIN}"
+            a = Alias.create_with_by_category(
+                user=user,
+                email=alias_email,
+                mailbox_id=mb.id,
+                note=note,
+                enabled=True,
+            )
+            if a:
+                alias_by_category[category] = a
+
         Session.flush()
 
-        user.newsletter_alias_id = alias.id
-        Session.flush()
+        # 保持 newsletter_alias_id 语义（用于系统通知/订阅类）
+        newsletter_alias = alias_by_category.get("newsletter")
+        if newsletter_alias:
+            user.newsletter_alias_id = newsletter_alias.id
+            Session.flush()
+        else:
+            LOG.e("Default newsletter alias not created for user %s", user.id)
+
+        # ====end 默认生成 3-4 个业务通用别名
 
         if config.DISABLE_ONBOARDING:
             LOG.d("Disable onboarding emails")
@@ -1076,7 +1109,7 @@ class User(Base, ModelMixin, UserMixin, PasswordOracle):
     ) -> List[Tuple[bool, str]]:
         """Return available domains for user to create random aliases
         Each result record contains:
-        - whether the domain belongs to SimpleLogin
+        - whether the domain belongs to HaloMailX
         - the domain
         """
         res = []
@@ -1169,9 +1202,9 @@ class User(Base, ModelMixin, UserMixin, PasswordOracle):
         self, alias_options: Optional[AliasOptions] = None
     ) -> [str]:
         """
-        Return all SimpleLogin domains that user can use when creating a new alias, including:
-        - SimpleLogin public domains, available for all users (ALIAS_DOMAIN)
-        - SimpleLogin premium domains, only available for Premium accounts (PREMIUM_ALIAS_DOMAIN)
+        Return all HaloMailX domains that user can use when creating a new alias, including:
+        - HaloMailX public domains, available for all users (ALIAS_DOMAIN)
+        - HaloMailX premium domains, only available for Premium accounts (PREMIUM_ALIAS_DOMAIN)
         """
         return [
             sl_domain.domain
@@ -1218,8 +1251,8 @@ class User(Base, ModelMixin, UserMixin, PasswordOracle):
         self, alias_options: Optional[AliasOptions] = None
     ) -> [str]:
         """return all domains that user can use when creating a new alias, including:
-        - SimpleLogin public domains, available for all users (ALIAS_DOMAIN)
-        - SimpleLogin premium domains, only available for Premium accounts (PREMIUM_ALIAS_DOMAIN)
+        - HaloMailX public domains, available for all users (ALIAS_DOMAIN)
+        - HaloMailX premium domains, only available for Premium accounts (PREMIUM_ALIAS_DOMAIN)
         - Verified custom domains
 
         """
@@ -1414,7 +1447,7 @@ class Client(Base, ModelMixin):
     user_id = sa.Column(sa.ForeignKey(User.id, ondelete="cascade"), nullable=False)
     icon_id = sa.Column(sa.ForeignKey(File.id), nullable=True)
 
-    # an app needs to be approved by SimpleLogin team
+    # an app needs to be approved by HaloMailX team
     approved = sa.Column(sa.Boolean, nullable=False, default=False, server_default="0")
     description = sa.Column(sa.Text, nullable=True)
 
@@ -1863,6 +1896,24 @@ class Alias(Base, ModelMixin):
             email=email,
             note=note,
             mailbox_id=mailbox_id or user.default_mailbox_id,
+        )
+
+    @classmethod
+    def create_with_by_category(cls, user, email: str, mailbox_id: int, note: str = "",
+                                enabled: bool = True, ) -> Optional["Alias"]:
+        email = sanitize_email(email)
+
+        # 用全局可用性判断更稳：避免碰到 DeletedAlias/Contact/reply_email 等冲突
+        if not available_sl_email(email):
+            return None
+
+        # 走 Alias.create，别绕过内部的限速/审计/事件等
+        return Alias.create(
+            user_id=user.id,
+            email=email,
+            mailbox_id=mailbox_id or user.default_mailbox_id,
+            note=note,
+            enabled=enabled,
         )
 
     @classmethod
